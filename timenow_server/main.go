@@ -5,6 +5,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/mhowto/go-example/session"
 	pb "github.com/mhowto/go-example/timenow"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -20,6 +21,11 @@ type server struct{}
 
 // SayHello implements helloworld.GreeterServer
 func (s *server) WhatsTimeNow(ctx context.Context, in *pb.WhatsTimeNowRequest) (*pb.WhatsTimeNowReply, error) {
+	sessID := session.SessionIdFromContext(ctx)
+	if len(sessID) > 0 {
+		log.Print("TimeNow: session-id ", sessID)
+	}
+
 	now := time.Now()
 
 	return &pb.WhatsTimeNowReply{Time: now.Format("2006-01-02 15:04:05")}, nil

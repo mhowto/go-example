@@ -40,7 +40,9 @@ import (
 	"time"
 
 	pb "github.com/mhowto/go-example/helloworld"
+	"github.com/mhowto/go-example/session"
 	timeNowPb "github.com/mhowto/go-example/timenow"
+	"github.com/twinj/uuid"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -60,6 +62,9 @@ func (s *server) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloRe
 	if rand.Intn(10) < 5 {
 		<-time.After(5 * time.Second)
 	}
+	sessID := uuid.NewV4().String()
+	log.Print("Greeter: session-id ", sessID)
+	ctx = session.NewContextWithSessionId(ctx, sessID)
 	t, err := s.timeClient.WhatsTimeNow(ctx, &timeNowPb.WhatsTimeNowRequest{})
 	if err != nil {
 		return nil, err
