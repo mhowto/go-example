@@ -35,9 +35,12 @@ package main
 
 import (
 	"log"
+	"math/rand"
 	"net"
+	"time"
 
 	pb "github.com/mhowto/go-example/helloworld"
+	timeNowPb "github.com/mhowto/go-example/timenow"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -48,11 +51,20 @@ const (
 )
 
 // server is used to implement helloworld.GreeterServer.
-type server struct{}
+type server struct {
+	timeClient timeNowPb.TimerClient
+}
 
 // SayHello implements helloworld.GreeterServer
 func (s *server) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloReply, error) {
-	return &pb.HelloReply{Message: "Hello " + in.Name}, nil
+	if rand.Intn(10) < 5 {
+		<-time.After(5 * time.Second)
+	}
+	t, err := s.timeClient.WhatsTimeNow(ctx, &timeNowPb.WhatsTimeNowRequest{})
+	if err != nil {
+		return nil, err
+	}
+	return &pb.HelloReply{Message: "Hello " + in.Name + ". It's " + t.Time + " now."}, nil
 }
 
 func main() {
@@ -61,7 +73,16 @@ func main() {
 		log.Fatalf("failed to listen: %v", err)
 	}
 	s := grpc.NewServer()
-	pb.RegisterGreeterServer(s, &server{})
+
+	conn, err := grpc.Dial(":50061", grpc.WithInsecure())
+	if err != nil {
+		log.Fatalf("did not connect: %v", err)
+	}
+	defer conn.Close()
+	c := timeNowPb.NewTimerClient(conn)
+
+	pb.RegisterGreeterServer(s, &server{timeClient: c})
+
 	// Register reflection service on gRPC server.
 	reflection.Register(s)
 	if err := s.Serve(lis); err != nil {
