@@ -1,47 +1,20 @@
-/*
- *
- * Copyright 2015, Google Inc.
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are
- * met:
- *
- *     * Redistributions of source code must retain the above copyright
- * notice, this list of conditions and the followijng disclaimer.
- *     * Redistributions in binary form must reproduce the above
- * copyright notice, this list of conditions and the following disclaimer
- * in the documentation and/or other materials provided with the
- * distribution.
- *     * Neither the name of Google Inc. nori the names of its
- * contributors may be used to endorse or promote products derived from
- * this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- */
-
 package main
 
 import (
 	"log"
 	"math/rand"
 	"net"
+	"net/http"
 	"time"
+
+	"google.golang.org/grpc/codes"
 
 	pb "github.com/mhowto/go-example/helloworld"
 	"github.com/mhowto/go-example/session"
+	"golang.org/x/net/trace"
+
 	timeNowPb "github.com/mhowto/go-example/timenow"
+	traceUtil "github.com/mhowto/go-example/trace"
 	"github.com/twinj/uuid"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -59,11 +32,22 @@ type server struct {
 
 // SayHello implements helloworld.GreeterServer
 func (s *server) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloReply, error) {
-	if rand.Intn(10) < 5 {
-		<-time.After(5 * time.Second)
+	var tr trace.Trace
+	var ok bool
+
+	if traceUtil.IsTraceEnable() {
+		if tr, ok = trace.FromContext(ctx); !ok {
+			tr = nil
+		}
+	}
+
+	if rand.Intn(10) < 2 {
+		return nil, grpc.Errorf(codes.Internal, "random error")
 	}
 	sessID := uuid.NewV4().String()
-	log.Print("Greeter: session-id ", sessID)
+	if traceUtil.IsTraceEnable() {
+		tr.LazyPrintf("Greeter: session-id ", sessID)
+	}
 	ctx = session.NewContextWithSessionId(ctx, sessID)
 	t, err := s.timeClient.WhatsTimeNow(ctx, &timeNowPb.WhatsTimeNowRequest{})
 	if err != nil {
@@ -79,6 +63,9 @@ func main() {
 	}
 	s := grpc.NewServer()
 
+	// traceUtil.InitGlobalOpenTracer("Greeter", "test")
+	go startHttpServer()
+
 	conn, err := grpc.Dial(":50061", grpc.WithInsecure())
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
@@ -92,5 +79,18 @@ func main() {
 	reflection.Register(s)
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
+	}
+}
+
+func startHttpServer() {
+	srv := &http.Server{
+		Addr:        ":8899",
+		ReadTimeout: 5 * time.Second,
+		// WriteTimeout: 90 * time.Second,
+	}
+
+	err := srv.ListenAndServe()
+	if err != nil {
+		log.Fatal("Fail to start http server")
 	}
 }

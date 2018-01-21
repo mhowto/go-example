@@ -36,7 +36,6 @@ package main
 import (
 	"log"
 	"os"
-	"time"
 
 	pb "github.com/mhowto/go-example/helloworld"
 	"golang.org/x/net/context"
@@ -62,11 +61,12 @@ func main() {
 	if len(os.Args) > 1 {
 		name = os.Args[1]
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	r, err := c.SayHello(ctx, &pb.HelloRequest{Name: name})
-	if err != nil {
-		log.Fatalf("could not greet: %v", err)
+	for {
+		r, err := c.SayHello(context.Background(), &pb.HelloRequest{Name: name})
+		if err != nil {
+			log.Printf("could not greet: %v", err)
+		} else {
+			log.Printf("Greeting: %s", r.Message)
+		}
 	}
-	log.Printf("Greeting: %s", r.Message)
 }
