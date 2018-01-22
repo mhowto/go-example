@@ -35,7 +35,9 @@ package main
 
 import (
 	"log"
+	"math/rand"
 	"net"
+	"time"
 
 	pb "github.com/mhowto/go-example/helloworld"
 	"golang.org/x/net/context"
@@ -52,6 +54,11 @@ type server struct{}
 
 // SayHello implements helloworld.GreeterServer
 func (s *server) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloReply, error) {
+	if rand.Intn(10) < 5 {
+		<-time.After(5 * time.Second)
+	}
+
+	log.Println("receive request:", in.Name)
 	return &pb.HelloReply{Message: "Hello " + in.Name}, nil
 }
 
