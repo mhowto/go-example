@@ -35,9 +35,7 @@ package main
 
 import (
 	"log"
-	"math/rand"
 	"net"
-	"time"
 
 	pb "github.com/mhowto/go-example/helloworld"
 	timeNowPb "github.com/mhowto/go-example/timenow"
@@ -58,9 +56,6 @@ type server struct {
 
 // SayHello implements helloworld.GreeterServer
 func (s *server) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloReply, error) {
-	if rand.Intn(10) < 5 {
-		<-time.After(5 * time.Second)
-	}
 	t, err := s.timeClient.WhatsTimeNow(ctx, &timeNowPb.WhatsTimeNowRequest{})
 	if err != nil {
 		return nil, err
