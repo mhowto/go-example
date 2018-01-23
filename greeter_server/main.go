@@ -42,6 +42,7 @@ func (s *server) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloRe
 	}
 
 	if rand.Intn(10) < 2 {
+		tr.LazyPrintf("greeter server: random error\n")
 		return nil, grpc.Errorf(codes.Internal, "random error")
 	}
 	sessID := uuid.NewV4().String()
